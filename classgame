@@ -1,0 +1,256 @@
+#include<iostream>
+#include<allegro.h>
+#include <algorithm>
+#include <list>
+using namespace std;
+class Game;
+class Actor;
+class ActorManager;
+class StageManager;
+
+
+class Actor
+{
+    protected:
+            int x,y;
+    public:
+        Actor();
+        virtual~Actor();
+        virtual void draw(BITMAP* bmp);
+        virtual void update();
+        void set_x(int pos_x ){
+            x=pos_x;
+        }
+        void set_y(int pos_y){
+            y = pos_y;
+        }
+        intget_x(){
+            return x;
+        }
+        int get_y(){
+            return y;
+        }
+
+};
+// lista
+class ActorManager{
+    protected:
+        Game*game;
+        list<Actor *>actors;
+        list<Actor *>::iterator actors_iter;
+    public:
+        ActorManager(Game*g){
+            game=g;
+        }
+        ~ActorManager(){
+            for(actors_iter=actors.begin();actors_iter!=actors.end();actors_iter++)
+                delete(*actors_iter);
+        }
+        void add(Actor*a){
+            actors.push_back(a);
+            }
+        void del (Actor*a){
+            list<Actor*>::iterator tmp_actors_iter;
+            tmp_actors_iter=find(actors.begin(),actors.end(),a);
+            if (tmp_actors_iter!=actors.end()){
+            actors.erase(tmp_actors_iter);
+            }
+        }
+        void rewind(){
+            actors_iter=actors.begin();
+        }
+        Actor *next(){
+            Actor*tmp_a;
+            tmp_a = *actors_iter;
+            if (actors_iter==actors.end()){return NULL;}
+            actors_iter++;
+            return tmp_a;
+        }
+        Actor*current(){
+            if (actors_iter==actors.end()){
+                return NULL;
+            }
+            else{
+                return *actors_iter;
+            }
+        }
+        void update(){
+            list<Actor*>::iterator tmp_iter;
+            for (tmp_iter=actors.begin();tmp_iter!=actors.end();tmp_iter++){
+                (*tmp_iter)->update();//yes
+            }
+
+        }
+        int num_actors(){
+            return actors.size();
+        }
+
+};
+//mapa
+class StageManager{
+protected:
+    Game *game;
+    BITMAP *buffer;
+    int width,height;
+
+public:
+
+    StageManager(Game*g,int w,int h){
+        game=g;
+        width=w;
+        height=h;
+        buffer=create_bitmap(SCREEN_W,SCREEN_H);
+    }
+    ~StageManager(){
+        destroy_bitmap(buffer);
+    }
+    int w(){
+        return width;
+    }
+    int h(){
+        return height;
+    }
+    void update(){
+        draw();
+    }
+    void draw(){
+        Actor * tmp;
+        game->actor_manager->rewind();
+        clear(buffer);
+        while((tmp=game->actor_manager->next())!=NULL){
+            tmp->draw(buffer);
+        }
+        blit(buffer,screen,0,0,0,0,SCREEN_W,SCREEN_H);
+    }
+
+};
+
+class Game{
+private:
+    void start(){
+        main();
+        //
+        shutdown();
+    }
+    void shutdown(string message="Gracias por jugar"){
+        delete actor_manager;
+        delete stage_manager;
+        set_gfx_mode(GFX_TEXT,0,0,0,0);
+        cout<<name<<endl;
+        cout<<message<<endl;
+        allegro_exit();
+    }
+    void create_actormanager(){
+        actor_manager=new ActorManager(this);
+    }
+    void create_stagemanager(){
+        stage_manager=new StageManager(this,gfx_w,gfx_h);
+    }
+protected:
+    string name;
+    void update(){
+        stage_manager->update();
+        actor_manager->update();
+    }
+    int gfx_w,gfx_h;
+    int colors;
+
+public:
+    Game(){
+        stage_manager=NULL;
+        actor_manager=NULL;
+
+    }
+    virtual~Game(){
+
+    }
+    ActorManager * actor_manager;
+    StageManager * stage_manager;
+
+    virtual void init(int gfx_mode,int w,int h,int col){
+        allegro_init();
+        install_keyboard();
+        set_color_depth(col);
+        if(set_gfx_mode(gfx_mode,w,h,0,0)<0){
+            shutdown("No se pudo inicializar modo grafico");
+            return;
+        }
+        create_actormanager();
+        create_stagemanager();
+        start();
+    }
+    virtual void main(){
+        while(!key[KEY_ESC]);
+    }
+    void set_name(string n){
+        name=n;
+    }
+    string get_name(){
+        return name;
+    }
+
+};
+class Tanque:public Actor{
+protected:
+    BITMAP *tbmp;
+    BITMAP *tank1;
+    int px = 32*20,py =32*10;
+public:
+    Tanque(){
+        image=NULL;
+    }
+    void draw(BITMAP*bmp){
+        draw_sprite(bmp,image,x,y);
+    }
+    void update(){
+    // codigo de teclado;
+    }
+    void set_image(BITMAP*bmp){
+        image=bmp;
+    }
+};
+class TestFrameWork:public Game{
+public:
+    void main(){
+        BITMAP*bmp;
+        PALETTE tmp;
+        Tanque*a=new Tanque;
+        bmp=load_bitmap("nave.pcx",tmp);
+        a->set_image(bmp);
+        a->set_x(0);
+        a->set_y(0);
+        actor_manager->add(a);
+        while(!key[KEY_ESC])update();
+        destroy_bitmap(bmp);
+    }
+};
+class Enemigo:public Actor{
+protected:
+    BITMAP *enemigobmp;
+    BITMAP *enemigo;
+    int ene_dir = 0;
+    int _x = 32*15,_y = 32*10;
+    int anterior_px,anterior_py;
+
+    void reinit(){
+
+        x=rand()%SCREEN_W;
+        y=0;
+        vy=1+rand()%4;
+    }
+
+    int vy;
+public:
+    Enemigo(){
+        reinit();
+    }
+    void update(){
+        y+=vy;
+        if(y>SCREEN_H){reinit();}
+    }
+    void draw(BITMAP*bmp){
+        putpixel(bmp,x,y,makecol(255,255,255));
+    }
+
+};
+
